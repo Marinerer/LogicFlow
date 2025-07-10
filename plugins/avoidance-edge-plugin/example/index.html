@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogicFlow AvoidanceEdgePlugin Example</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@logicflow/core/dist/style/index.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@logicflow/extension/lib/style/index.css" />
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        #container {
+            width: 100%;
+            height: 100%;
+        }
+        .custom-menu {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+            padding: 5px 0;
+            z-index: 1000;
+        }
+        .custom-menu-item {
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+        .custom-menu-item:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@logicflow/core/dist/logic-flow.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@logicflow/extension/lib/index.umd.js"></script>
+    <script src="../src/AvoidanceEdgePlugin.js"></script>
+
+    <script>
+        const lf = new LogicFlow({
+            container: document.getElementById('container'),
+            grid: true,
+            background: {
+                color: '#f7f9ff'
+            },
+            keyboard: {
+                enabled: true
+            },
+            plugins: [
+                LogicFlow.Menu,
+                LogicFlow.Snapshot,
+                LogicFlow.Control,
+                LogicFlow.MiniMap,
+                AvoidanceEdgePlugin // Register the plugin
+            ]
+        });
+
+        // Optional: Access the plugin instance if needed
+        // const avoidancePlugin = lf.extension.avoidanceEdge;
+
+        // --- Custom Node (Optional - for better visual testing) ---
+        class UmlModel extends LogicFlow.RectNodeModel {
+            setAttributes() {
+                this.width = 100;
+                this.height = 80;
+                this.radius = 8;
+                this.text.editable = false; // Disable direct text editing for this example
+            }
+            getNodeStyle() {
+                const style = super.getNodeStyle();
+                style.fill = '# इच्छित रंग'; // Light blue
+                style.stroke = '#2980b9';
+                style.strokeWidth = 2;
+                return style;
+            }
+        }
+        class UmlNode extends LogicFlow.RectNode {}
+
+        lf.register({
+            type: 'uml-node',
+            view: UmlNode,
+            model: UmlModel
+        });
+        // --- End Custom Node ---
+
+
+        const graphData = {
+            nodes: [
+                { id: 'node_1', type: 'uml-node', x: 150, y: 100, text: 'Node 1' },
+                { id: 'node_2', type: 'uml-node', x: 450, y: 100, text: 'Node 2' },
+                { id: 'node_3', type: 'uml-node', x: 300, y: 250, text: 'Obstacle 1' },
+                { id: 'node_4', type: 'uml-node', x: 150, y: 400, text: 'Node 4' },
+                { id: 'node_5', type: 'uml-node', x: 450, y: 400, text: 'Node 5' },
+                { id: 'node_6', type: 'uml-node', x: 300, y: 550, text: 'Obstacle 2' },
+                { id: 'node_c_1', type: 'circle', x: 700, y: 100, text: 'Circle A'},
+                { id: 'node_c_2', type: 'circle', x: 700, y: 300, text: 'Circle B'},
+                { id: 'node_c_3', type: 'circle', x: 700, y: 500, text: 'Circle C'},
+            ],
+            edges: [
+                { id: 'edge_1', sourceNodeId: 'node_1', targetNodeId: 'node_2', text: 'Edge 1-2' },
+                { id: 'edge_2', sourceNodeId: 'node_4', targetNodeId: 'node_5', text: 'Edge 4-5' },
+                { id: 'edge_3', sourceNodeId: 'node_1', targetNodeId: 'node_4', text: 'Edge 1-4' }, // Vertical
+                { id: 'edge_4', sourceNodeId: 'node_2', targetNodeId: 'node_5', text: 'Edge 2-5' }, // Vertical
+                { id: 'edge_5', sourceNodeId: 'node_1', targetNodeId: 'node_5', text: 'Diagonal' },
+                { id: 'edge_c1', sourceNodeId: 'node_c_1', targetNodeId: 'node_c_2', text: 'C1-C2'},
+                { id: 'edge_c2', sourceNodeId: 'node_c_2', targetNodeId: 'node_c_3', text: 'C2-C3'},
+            ]
+        };
+
+        lf.render(graphData);
+
+        // --- Test scenarios ---
+
+        // 1. Initial render: Covered by lf.render(graphData) and plugin's graph:rendered event
+
+        // 2. Add edge button (for manual testing)
+        const addEdgeButton = document.createElement('button');
+        addEdgeButton.innerText = 'Add Test Edge (N1 to N6)';
+        addEdgeButton.style.position = 'absolute';
+        addEdgeButton.style.top = '10px';
+        addEdgeButton.style.left = '10px';
+        addEdgeButton.onclick = () => {
+            const newEdgeId = `dynamic_edge_${Date.now()}`;
+            lf.addEdge({
+                id: newEdgeId,
+                sourceNodeId: 'node_1',
+                targetNodeId: 'node_6',
+                text: 'Dynamic Edge'
+            });
+            // The plugin's 'edge:add' listener should handle rerouting.
+        };
+        document.body.appendChild(addEdgeButton);
+
+        const addDenseNodesButton = document.createElement('button');
+        addDenseNodesButton.innerText = 'Add Dense Nodes & Edges';
+        addDenseNodesButton.style.position = 'absolute';
+        addDenseNodesButton.style.top = '50px';
+        addDenseNodesButton.style.left = '10px';
+        addDenseNodesButton.onclick = () => {
+            const startX = 700;
+            const startY = 80;
+            const numNodes = 4;
+            const spacing = 120;
+            const existingNodes = lf.getGraphData().nodes.map(n => n.id);
+            let lastNodeId = 'node_5'; // Connect from an existing node
+
+            for (let i = 0; i < numNodes; i++) {
+                const nodeId = `dense_${i}`;
+                if (existingNodes.includes(nodeId)) continue;
+
+                lf.addNode({
+                    id: nodeId,
+                    type: 'rect',
+                    x: startX + (i % 2) * spacing,
+                    y: startY + Math.floor(i / 2) * spacing,
+                    text: `Dense ${i}`
+                });
+                if (lastNodeId) {
+                     lf.addEdge({
+                        sourceNodeId: lastNodeId,
+                        targetNodeId: nodeId,
+                        text: `d_${i}`
+                    });
+                }
+                lastNodeId = nodeId;
+
+                // Add an edge to an earlier dense node to create more complex routing
+                if (i > 1) {
+                    lf.addEdge({
+                        sourceNodeId: `dense_${i-2}`,
+                        targetNodeId: nodeId,
+                        text: `skip_d_${i}`
+                    });
+                }
+            }
+             // After adding all nodes and edges, explicitly trigger a reroute if necessary,
+            // though individual additions should trigger it.
+            // if (lf.extension.avoidanceEdge && lf.extension.avoidanceEdge.rerouteAllEdges) {
+            //     lf.extension.avoidanceEdge.rerouteAllEdges();
+            // }
+        };
+        document.body.appendChild(addDenseNodesButton);
+
+        // 3. Moving nodes: LogicFlow handles this, plugin's 'node:move' listener will trigger.
+        // 4. Modifying edge connection points: LogicFlow handles this, plugin's 'edge:change:target' will trigger.
+
+        // Expose lf instance for debugging in console
+        window.lf = lf;
+        console.log("LogicFlow instance with AvoidanceEdgePlugin ready.");
+        console.log("Test scenarios:");
+        console.log("1. Initial Render: Check if edges (e.g., Edge 1-2, Edge 4-5) avoid Obstacle 1 and Obstacle 2 respectively.");
+        console.log("2. Add Edge: Click 'Add Test Edge (N1 to N6)' button. The new edge should attempt to avoid Obstacle 1 and Node 4/5.");
+        console.log("3. Move Node: Drag 'Obstacle 1', 'Node 3', 'Node 1' etc. and observe if connected edges and nearby edges reroute.");
+        console.log("4. Modify Edge Connection: Drag an edge's endpoint to a different node. The edge should reroute.");
+        console.log("5. Dense Nodes: Click 'Add Dense Nodes & Edges' to test performance and routing in crowded areas.");
+
+    </script>
+</body>
+</html>
